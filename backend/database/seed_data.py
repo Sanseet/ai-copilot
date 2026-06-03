@@ -265,3 +265,7 @@ if __name__ == "__main__":
     init_db()
     seed()
     print("Done.")
+
+
+# To run this seed script independently:
+# 1. Ensure the database is initialized by running `init_db()` from db_manager.
