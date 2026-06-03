@@ -13,7 +13,8 @@ from backend.config import settings
 from backend.logger import Timer, log_event, logger
 
 _embedder: SentenceTransformer | None = None
-_chroma_client: chromadb.PersistentClient | None = None
+# _chroma_client: chromadb.PersistentClient | None = None
+_chroma_client: chromadb.Client | None = None
 
 
 def _get_embedder() -> SentenceTransformer:
@@ -24,13 +25,30 @@ def _get_embedder() -> SentenceTransformer:
     return _embedder
 
 
-def _get_chroma_client() -> chromadb.PersistentClient:
+# def _get_chroma_client() -> chromadb.PersistentClient:
+#     global _chroma_client
+#     if _chroma_client is None:
+#         _chroma_client = chromadb.PersistentClient(
+#             path=str(settings.chroma_path),
+#             settings=ChromaSettings(anonymized_telemetry=False),
+#         )
+#     return _chroma_client
+
+
+def _get_chroma_client():
     global _chroma_client
     if _chroma_client is None:
-        _chroma_client = chromadb.PersistentClient(
-            path=str(settings.chroma_path),
-            settings=ChromaSettings(anonymized_telemetry=False),
-        )
+        if settings.chroma_in_memory:
+            logger.info("Using in-memory ChromaDB (production mode)")
+            _chroma_client = chromadb.EphemeralClient(
+                settings=ChromaSettings(anonymized_telemetry=False)
+            )
+        else:
+            logger.info("Using persistent ChromaDB at %s", settings.chroma_path)
+            _chroma_client = chromadb.PersistentClient(
+                path=str(settings.chroma_path),
+                settings=ChromaSettings(anonymized_telemetry=False),
+            )
     return _chroma_client
 
 

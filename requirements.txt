@@ -34,3 +34,7 @@ python-dotenv==1.2.2
 tiktoken==0.13.0
 tenacity==9.1.4
 httpx==0.28.1
+
+
+pypdf==5.9.0
+python-docx==1.2.0
