@@ -19,23 +19,35 @@ import os
 # if settings.hf_token:
 #     os.environ["HUGGINGFACE_HUB_TOKEN"] = settings.hf_token
 
+# @asynccontextmanager
+# async def lifespan(app: FastAPI):
+#     """Run setup tasks on startup, cleanup on shutdown."""
+#     logger.info("=== AI Copilot starting ===")
+
+#     init_db()
+
+#     seed()
+
+#     get_graph()
+#     logger.info("LangGraph workflow ready")
+
+#     logger.info("=== AI Copilot ready on http://%s:%s ===",
+#                 settings.api_host, settings.api_port)
+
+#     yield 
+
+#     logger.info("=== AI Copilot shutting down ===")
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Run setup tasks on startup, cleanup on shutdown."""
     logger.info("=== AI Copilot starting ===")
-
+    
+    # Only init DB — no model loading at startup
     init_db()
-
     seed()
-
-    get_graph()
-    logger.info("LangGraph workflow ready")
-
-    logger.info("=== AI Copilot ready on http://%s:%s ===",
-                settings.api_host, settings.api_port)
-
-    yield 
-
+    
+    logger.info("=== AI Copilot ready (models load on first request) ===")
+    yield
     logger.info("=== AI Copilot shutting down ===")
 
 def create_app() -> FastAPI:
