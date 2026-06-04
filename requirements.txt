@@ -9,6 +9,7 @@ langgraph==1.2.2
 # Vector Store & Embeddings 
 chromadb==1.5.9
 # sentence-transformers==5.5.1
+onnxruntime==1.26.0
 
 # Document Loaders 
 pypdf==5.9.0
