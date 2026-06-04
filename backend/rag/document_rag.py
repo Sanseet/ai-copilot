@@ -1,27 +1,33 @@
 from __future__ import annotations
 
 import hashlib
+import os
 from pathlib import Path
 from typing import Any
 
 import chromadb
 from chromadb.config import Settings as ChromaSettings
+from chromadb.utils.embedding_functions import ONNXMiniLM_L6_V2
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-from sentence_transformers import SentenceTransformer
 
 from backend.config import settings
 from backend.logger import Timer, log_event, logger
+from sentence_transformers import SentenceTransformer
 
-_embedder: SentenceTransformer | None = None
-# _chroma_client: chromadb.PersistentClient | None = None
+# _embedder: SentenceTransformer | None = None
+# # _chroma_client: chromadb.PersistentClient | None = None
+# _chroma_client: chromadb.Client | None = None
+
+_embedder = None
 _chroma_client: chromadb.Client | None = None
 
 
-def _get_embedder() -> SentenceTransformer:
+
+def _get_embedder():
     global _embedder
     if _embedder is None:
-        logger.info("Loading embedding model: %s", settings.embedding_model)
-        _embedder = SentenceTransformer(settings.embedding_model)
+        logger.info("Loading ONNX embedding model (no torch)")
+        _embedder = ONNXMiniLM_L6_V2()
     return _embedder
 
 
@@ -116,8 +122,8 @@ def chunk_text(text: str, file_name: str) -> list[dict[str, Any]]:
 
 def embed_texts(texts: list[str]) -> list[list[float]]:
     embedder = _get_embedder()
-    vectors = embedder.encode(texts, show_progress_bar=False, normalize_embeddings=True)
-    return vectors.tolist()
+    # ONNXMiniLM_L6_V2 is callable — returns list of embeddings directly
+    return embedder(texts)
 
 
 def ingest_document(

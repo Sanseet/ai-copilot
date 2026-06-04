@@ -111,7 +111,8 @@ class Settings(BaseSettings):
 
     chroma_persist_dir: str = f"{BASE_DATA_DIR}/chroma_db"
     chroma_collection_name: str = "documents"
-    chroma_in_memory: bool = IS_PRODUCTION  # True on Render
+    # chroma_in_memory: bool = IS_PRODUCTION  # True on Render
+    chroma_in_memory: bool = False
 
     sqlite_db_path: str = f"{BASE_DATA_DIR}/copilot.db"
 
