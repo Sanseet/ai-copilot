@@ -2,12 +2,40 @@ services:
   - type: web
     name: ai-copilot-backend
     runtime: python
+    region: oregon
+    plan: free
     buildCommand: pip install -r requirements.txt
     startCommand: uvicorn backend.main:app --host 0.0.0.0 --port $PORT --timeout-keep-alive 120
     envVars:
-      - key: ENVIRONMENT
-        value: production
-      - key: GROQ_API_KEY
-        sync: false   # you'll paste this manually in Render dashboard
       - key: PYTHON_VERSION
         value: 3.11.0
+      - key: GROQ_API_KEY
+        sync: false
+      - key: LLM_MODEL
+        value: llama-3.3-70b-versatile
+      - key: LLM_TEMPERATURE
+        value: "0.2"
+      - key: LLM_MAX_TOKENS
+        value: "2048"
+      - key: EMBEDDING_MODEL
+        value: all-MiniLM-L6-v2
+      - key: CHROMA_PERSIST_DIR
+        value: ./data/chroma_db
+      - key: CHROMA_COLLECTION_NAME
+        value: documents
+      - key: SQLITE_DB_PATH
+        value: ./data/copilot.db
+      - key: CHUNK_SIZE
+        value: "512"
+      - key: CHUNK_OVERLAP
+        value: "64"
+      - key: TOP_K_RETRIEVAL
+        value: "4"
+      - key: UPLOAD_DIR
+        value: ./data/uploads
+      - key: MAX_FILE_SIZE_MB
+        value: "20"
+      - key: LOG_LEVEL
+        value: INFO
+      - key: LOG_FILE
+        value: ./logs/app.log

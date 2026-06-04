@@ -1,0 +1,768 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>AI Copilot — Dashboard</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0d1117;--bg2:#161b22;--bg3:#21262d;
+  --border:#30363d;--text:#e6edf3;--muted:#8b949e;
+  --blue:#388bfd;--blue2:#1f6feb;--blue-light:#79c0ff;
+  --green:#3fb950;--purple:#bc8cff;--red:#f85149;--amber:#d29922;
+}
+body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;min-height:100vh;display:flex;flex-direction:column}
+a{color:var(--blue-light);text-decoration:none}
+
+/* NAV */
+nav{position:sticky;top:0;z-index:200;background:rgba(13,17,23,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;padding:0 1.5rem;height:52px}
+.nav-logo{font-weight:700;font-size:1rem;display:flex;align-items:center;gap:8px}
+.nav-links{display:flex;gap:1rem;font-size:0.85rem;color:var(--muted)}
+.nav-links span{cursor:pointer;padding:4px 8px;border-radius:6px;transition:.15s}
+.nav-links span:hover,.nav-links span.active{color:var(--text);background:var(--bg3)}
+.status-dot{width:8px;height:8px;border-radius:50%;background:var(--red);display:inline-block;margin-right:6px;transition:.3s}
+.status-dot.online{background:var(--green)}
+
+/* LAYOUT */
+.app{display:flex;flex:1;height:calc(100vh - 52px);overflow:hidden}
+
+/* SIDEBAR */
+.sidebar{width:260px;min-width:260px;background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
+.sidebar-section{padding:12px;border-bottom:1px solid var(--border)}
+.sidebar-section:last-child{border-bottom:none}
+.sidebar-label{font-size:.68rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px}
+.new-chat-btn{width:100%;background:var(--blue2);color:#fff;border:none;border-radius:8px;padding:8px;font-size:.85rem;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;transition:.15s}
+.new-chat-btn:hover{background:var(--blue)}
+
+/* Session list */
+.session-list{overflow-y:auto;flex:1;padding:8px}
+.session-item{padding:8px 10px;border-radius:7px;cursor:pointer;font-size:.8rem;color:var(--muted);border:1px solid transparent;margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transition:.12s}
+.session-item:hover{background:var(--bg3);color:var(--text)}
+.session-item.active{background:#1c2d45;border-color:#388bfd55;color:var(--blue-light)}
+
+/* Upload */
+.upload-zone{border:1.5px dashed var(--border);border-radius:8px;padding:12px;text-align:center;cursor:pointer;transition:.15s;font-size:.8rem;color:var(--muted)}
+.upload-zone:hover{border-color:var(--blue);color:var(--blue-light)}
+#file-input{display:none}
+.doc-chip{background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:5px 8px;font-size:.75rem;color:var(--muted);margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;gap:6px}
+.doc-chip span{margin-left:auto;color:#3a4a66;font-size:.7rem}
+
+/* Stats row */
+.stats-row{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:4px}
+.stat-box{background:var(--bg3);border:1px solid var(--border);border-radius:7px;padding:8px;text-align:center}
+.stat-box .num{font-size:1.1rem;font-weight:700;color:var(--text)}
+.stat-box .lbl{font-size:.65rem;color:var(--muted)}
+
+/* MAIN CHAT */
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.chat-messages{flex:1;overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:12px}
+
+/* Welcome */
+.welcome{text-align:center;margin:auto;max-width:500px;padding:40px 20px}
+.welcome h2{font-size:1.6rem;font-weight:700;margin-bottom:.5rem}
+.welcome p{color:var(--muted);font-size:.9rem;margin-bottom:1.5rem}
+.caps-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-top:12px}
+.cap-card{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:12px;text-align:left;cursor:pointer;transition:.15s;font-size:.82rem;color:var(--muted)}
+.cap-card:hover{border-color:var(--blue);color:var(--text)}
+.cap-card .icon{font-size:1.3rem;margin-bottom:6px}
+
+/* Messages */
+.msg{display:flex;flex-direction:column;max-width:80%}
+.msg.user{align-self:flex-end;align-items:flex-end}
+.msg.assistant{align-self:flex-start;align-items:flex-start}
+.bubble{padding:11px 15px;border-radius:12px;font-size:.88rem;line-height:1.6;white-space:pre-wrap;word-break:break-word}
+.msg.user .bubble{background:var(--blue2);color:#fff;border-radius:16px 16px 4px 16px}
+.msg.assistant .bubble{background:var(--bg2);border:1px solid var(--border);border-radius:4px 16px 16px 16px;color:var(--text)}
+.tool-badge{font-size:.7rem;background:#388bfd18;color:var(--blue-light);border:1px solid #388bfd33;border-radius:12px;padding:2px 9px;margin-bottom:5px;display:inline-block}
+.sources-btn{font-size:.72rem;color:var(--muted);margin-top:5px;cursor:pointer;border:none;background:none;display:flex;align-items:center;gap:4px}
+.sources-btn:hover{color:var(--green)}
+.sources-panel{background:#0d1520;border:1px solid var(--border);border-left:3px solid var(--green);border-radius:0 6px 6px 0;padding:8px 12px;margin-top:4px;font-size:.76rem;color:var(--muted);display:none}
+.sources-panel.open{display:block}
+.typing{display:flex;align-items:center;gap:6px;color:var(--muted);font-size:.8rem}
+.dot{width:6px;height:6px;background:var(--blue);border-radius:50%;animation:blink 1.2s infinite}
+.dot:nth-child(2){animation-delay:.2s}.dot:nth-child(3){animation-delay:.4s}
+@keyframes blink{0%,80%,100%{opacity:.2}40%{opacity:1}}
+
+/* INPUT */
+.input-area{padding:12px 20px 16px;border-top:1px solid var(--border);background:var(--bg)}
+.input-row{display:flex;gap:8px;align-items:flex-end;max-width:900px;margin:0 auto}
+#chat-input{flex:1;background:var(--bg2);border:1px solid var(--border);border-radius:12px;color:var(--text);padding:10px 14px;font-size:.9rem;resize:none;font-family:inherit;outline:none;min-height:44px;max-height:160px;transition:.15s}
+#chat-input:focus{border-color:var(--blue)}
+#send-btn{background:var(--blue2);color:#fff;border:none;border-radius:10px;width:42px;height:42px;font-size:1rem;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:.15s}
+#send-btn:hover{background:var(--blue)}
+#send-btn:disabled{opacity:.4;cursor:not-allowed}
+
+/* PAGES */
+.page{display:none;flex:1;flex-direction:column;overflow:hidden}
+.page.active{display:flex}
+.page-content{flex:1;overflow-y:auto;padding:24px}
+.page-content h2{font-size:1.3rem;font-weight:700;margin-bottom:.3rem}
+.page-content .sub{color:var(--muted);font-size:.85rem;margin-bottom:1.5rem}
+
+/* DB page */
+.db-query-box{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:16px}
+.db-query-box input{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:7px;color:var(--text);padding:8px 12px;font-size:.88rem;outline:none;font-family:inherit}
+.db-query-box input:focus{border-color:var(--blue)}
+.run-btn{background:var(--blue2);color:#fff;border:none;border-radius:7px;padding:7px 18px;font-size:.85rem;font-weight:600;cursor:pointer;margin-top:8px;transition:.15s}
+.run-btn:hover{background:var(--blue)}
+.results-table{width:100%;border-collapse:collapse;font-size:.82rem;margin-top:12px}
+.results-table th{background:var(--bg3);color:var(--muted);padding:8px 10px;text-align:left;border-bottom:1px solid var(--border);font-weight:600;font-size:.75rem;text-transform:uppercase}
+.results-table td{padding:8px 10px;border-bottom:1px solid #1c2230;color:var(--text)}
+.results-table tr:last-child td{border-bottom:none}
+.results-table tr:hover td{background:#161d2a}
+.sql-preview{background:#0a0e16;border:1px solid var(--border);border-radius:6px;padding:10px 14px;font-family:monospace;font-size:.8rem;color:var(--blue-light);margin-top:8px;overflow-x:auto;white-space:pre}
+
+/* Logs page */
+.log-table{width:100%;border-collapse:collapse;font-size:.78rem}
+.log-table th{background:var(--bg3);color:var(--muted);padding:7px 10px;text-align:left;border-bottom:1px solid var(--border);font-size:.72rem;text-transform:uppercase}
+.log-table td{padding:7px 10px;border-bottom:1px solid #161c26;font-family:monospace;color:var(--muted)}
+.log-table tr:hover td{background:#0f141f}
+.badge{display:inline-block;border-radius:10px;padding:1px 8px;font-size:.7rem;font-weight:600}
+.badge.chat{background:#388bfd18;color:var(--blue-light)}
+.badge.tool_call{background:#3fb95018;color:var(--green)}
+.badge.upload{background:#bc8cff18;color:var(--purple)}
+.badge.error{background:#f8514918;color:var(--red)}
+.badge.other{background:#d2992218;color:var(--amber)}
+
+/* API page */
+.ep-list{display:flex;flex-direction:column;gap:6px}
+.ep{display:flex;align-items:center;gap:10px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:10px 14px;font-family:monospace;font-size:.82rem}
+.method{font-weight:700;min-width:52px;text-align:center;border-radius:4px;padding:2px 5px;font-size:.72rem}
+.method.POST{background:#388bfd18;color:var(--blue-light)}
+.method.GET{background:#3fb95018;color:var(--green)}
+.method.DELETE{background:#f8514918;color:var(--red)}
+.ep-path{color:var(--text)}
+.ep-desc{margin-left:auto;font-family:sans-serif;font-size:.76rem;color:var(--muted)}
+.try-btn{background:var(--bg3);border:1px solid var(--border);color:var(--muted);border-radius:5px;padding:3px 10px;font-size:.72rem;cursor:pointer;transition:.12s}
+.try-btn:hover{border-color:var(--blue);color:var(--blue-light)}
+
+/* API tester */
+.api-tester{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:16px;margin-top:16px}
+.api-tester textarea{width:100%;background:#0a0e16;border:1px solid var(--border);border-radius:6px;color:var(--blue-light);padding:10px;font-family:monospace;font-size:.8rem;resize:vertical;outline:none;min-height:80px}
+.api-response{background:#0a0e16;border:1px solid var(--border);border-radius:6px;padding:10px;font-family:monospace;font-size:.76rem;color:var(--green);white-space:pre-wrap;max-height:300px;overflow-y:auto;margin-top:8px;display:none}
+
+/* Responsive */
+@media(max-width:700px){
+  .sidebar{display:none}
+  .ep-desc{display:none}
+}
+
+/* Scrollbar */
+::-webkit-scrollbar{width:4px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px}
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <div class="nav-logo">
+    <span>🤖</span> AI Copilot
+    <span class="status-dot" id="status-dot"></span>
+    <span id="status-text" style="font-size:.75rem;color:var(--muted);font-weight:400">connecting…</span>
+  </div>
+  <div class="nav-links">
+    <span class="active" onclick="showPage('chat')">💬 Chat</span>
+    <span onclick="showPage('database')">🗃️ Database</span>
+    <span onclick="showPage('logs')">📊 Logs</span>
+    <span onclick="showPage('api')">🔌 API</span>
+  </div>
+  <div style="font-size:.75rem;color:var(--muted)" id="backend-url-display"></div>
+</nav>
+
+<div class="app">
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+    <!-- New Chat -->
+    <div class="sidebar-section">
+      <button class="new-chat-btn" onclick="newChat()">＋ New Chat</button>
+    </div>
+
+    <!-- Sessions -->
+    <div class="session-list" id="session-list">
+      <div style="font-size:.75rem;color:var(--muted);padding:8px">No sessions yet</div>
+    </div>
+
+    <!-- Upload -->
+    <div class="sidebar-section">
+      <div class="sidebar-label">Upload Document</div>
+      <div class="upload-zone" onclick="document.getElementById('file-input').click()">
+        📁 Click to upload PDF / DOCX / TXT
+      </div>
+      <input type="file" id="file-input" accept=".pdf,.docx,.txt" onchange="uploadFile(this)"/>
+      <div id="upload-status" style="font-size:.76rem;margin-top:6px;color:var(--green)"></div>
+      <div id="doc-list"></div>
+    </div>
+
+    <!-- Stats -->
+    <div class="sidebar-section">
+      <div class="sidebar-label">Your Stats</div>
+      <div class="stats-row">
+        <div class="stat-box"><div class="num" id="stat-sessions">—</div><div class="lbl">Sessions</div></div>
+        <div class="stat-box"><div class="num" id="stat-msgs">—</div><div class="lbl">Messages</div></div>
+        <div class="stat-box"><div class="num" id="stat-docs">—</div><div class="lbl">Docs</div></div>
+      </div>
+    </div>
+
+    <!-- Settings -->
+    <div class="sidebar-section">
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <span style="font-size:.8rem;color:var(--muted)">Streaming</span>
+        <label style="cursor:pointer">
+          <input type="checkbox" id="stream-toggle" checked style="accent-color:var(--blue)"/>
+        </label>
+      </div>
+      <div style="margin-top:8px;font-size:.72rem;color:#3a4a66" id="user-id-display"></div>
+    </div>
+  </div>
+
+  <!-- CHAT PAGE -->
+  <div class="page active" id="page-chat">
+    <div class="chat-messages" id="chat-messages">
+      <div class="welcome" id="welcome-msg">
+        <div style="font-size:3rem;margin-bottom:12px">🤖</div>
+        <h2>AI Copilot</h2>
+        <p>Hybrid RAG · Tool Calling · Persistent Memory<br>Powered by Groq Llama 3.3 70B</p>
+        <div class="caps-grid">
+          <div class="cap-card" onclick="fillInput('Find candidates skilled in Python')">
+            <div class="icon">🗃️</div>Query candidate database
+          </div>
+          <div class="cap-card" onclick="fillInput('What is in my uploaded document?')">
+            <div class="icon">📄</div>Ask about documents
+          </div>
+          <div class="cap-card" onclick="fillInput('Calculate 2 ** 32')">
+            <div class="icon">🧮</div>Run calculations
+          </div>
+          <div class="cap-card" onclick="fillInput('Who has FastAPI project experience?')">
+            <div class="icon">🔍</div>Search by skills
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="input-area">
+      <div class="input-row">
+        <textarea id="chat-input" placeholder="Ask anything…" rows="1"
+          onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
+        <button id="send-btn" onclick="sendMessage()">➤</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- DATABASE PAGE -->
+  <div class="page" id="page-database">
+    <div class="page-content">
+      <h2>🗃️ Candidate Database</h2>
+      <p class="sub">Ask natural language questions — the AI generates and runs SQL automatically.</p>
+      <div class="db-query-box">
+        <input type="text" id="nl-query" placeholder="e.g. Find candidates skilled in Python with FastAPI experience"
+          onkeydown="if(event.key==='Enter')runNLQuery()"/>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
+          <button class="run-btn" onclick="runNLQuery()">▶ Run Query</button>
+          <button class="run-btn" style="background:var(--bg3);color:var(--muted);border:1px solid var(--border)" onclick="setQuery('Find all candidates with Machine Learning experience')">ML Engineers</button>
+          <button class="run-btn" style="background:var(--bg3);color:var(--muted);border:1px solid var(--border)" onclick="setQuery('Show candidates with FastAPI projects')">FastAPI Projects</button>
+          <button class="run-btn" style="background:var(--bg3);color:var(--muted);border:1px solid var(--border)" onclick="setQuery('List candidates with more than 3 years experience ordered by experience')">Senior Devs</button>
+          <button class="run-btn" style="background:var(--bg3);color:var(--muted);border:1px solid var(--border)" onclick="setQuery('Count candidates by location')">By Location</button>
+        </div>
+      </div>
+      <div id="sql-preview" class="sql-preview" style="display:none"></div>
+      <div id="db-results"></div>
+    </div>
+  </div>
+
+  <!-- LOGS PAGE -->
+  <div class="page" id="page-logs">
+    <div class="page-content">
+      <h2>📊 Activity Logs</h2>
+      <p class="sub">Real-time tool usage, latency, and conversation statistics from your backend.</p>
+      <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap">
+        <button class="run-btn" onclick="loadLogs()">🔄 Refresh</button>
+        <select id="log-filter" onchange="loadLogs()" style="background:var(--bg2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 10px;font-size:.82rem">
+          <option value="">All Events</option>
+          <option value="chat">Chat</option>
+          <option value="tool_call">Tool Calls</option>
+          <option value="upload">Uploads</option>
+          <option value="error">Errors</option>
+        </select>
+      </div>
+      <div id="logs-container">
+        <div style="color:var(--muted);font-size:.85rem">Loading logs…</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- API PAGE -->
+  <div class="page" id="page-api">
+    <div class="page-content">
+      <h2>🔌 API Reference</h2>
+      <p class="sub">Live endpoint tester — calls your Render backend directly.</p>
+      <div class="ep-list">
+        <div class="ep"><span class="method GET">GET</span><span class="ep-path">/api/v1/health</span><span class="ep-desc">Health check</span><button class="try-btn" onclick="tryApi('GET','/api/v1/health')">Try</button></div>
+        <div class="ep"><span class="method POST">POST</span><span class="ep-path">/api/v1/chat</span><span class="ep-desc">Chat with agent</span><button class="try-btn" onclick="tryApi('POST','/api/v1/chat',{user_id:userId,message:'Hello! What can you do?',stream:false})">Try</button></div>
+        <div class="ep"><span class="method GET">GET</span><span class="ep-path">/api/v1/sessions/{user_id}</span><span class="ep-desc">List sessions</span><button class="try-btn" onclick="tryApi('GET',`/api/v1/sessions/${userId}`)">Try</button></div>
+        <div class="ep"><span class="method GET">GET</span><span class="ep-path">/api/v1/history/{user_id}</span><span class="ep-desc">Chat history</span><button class="try-btn" onclick="tryApi('GET',`/api/v1/history/${userId}`)">Try</button></div>
+        <div class="ep"><span class="method GET">GET</span><span class="ep-path">/api/v1/documents/{user_id}</span><span class="ep-desc">Uploaded docs</span><button class="try-btn" onclick="tryApi('GET',`/api/v1/documents/${userId}`)">Try</button></div>
+        <div class="ep"><span class="method GET">GET</span><span class="ep-path">/api/v1/stats/{user_id}</span><span class="ep-desc">Usage stats</span><button class="try-btn" onclick="tryApi('GET',`/api/v1/stats/${userId}`)">Try</button></div>
+        <div class="ep"><span class="method DELETE">DELETE</span><span class="ep-path">/api/v1/history/{user_id}</span><span class="ep-desc">Clear history</span><button class="try-btn" onclick="tryApi('DELETE',`/api/v1/history/${userId}`)">Try</button></div>
+      </div>
+      <div class="api-tester">
+        <div style="font-size:.8rem;color:var(--muted);margin-bottom:6px">Response</div>
+        <div class="api-response" id="api-response"></div>
+        <div style="font-size:.72rem;color:#3a4a66;margin-top:6px" id="api-latency"></div>
+      </div>
+      <div style="margin-top:20px">
+        <a href="" id="swagger-link" target="_blank" style="color:var(--blue-light);font-size:.85rem">📖 Open Swagger Docs →</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── CONFIG ────────────────────────────────────────────────────────────────────
+// IMPORTANT: Replace this with your actual Render backend URL after deploying
+const BACKEND = 'https://ai-copilot-backend.onrender.com';
+const API = `${BACKEND}/api/v1`;
+
+// State
+let userId = localStorage.getItem('ai_copilot_user_id');
+if (!userId) {
+  userId = 'user_' + Math.random().toString(36).slice(2, 10);
+  localStorage.setItem('ai_copilot_user_id', userId);
+}
+let sessionId = null;
+let messages = [];
+
+// ── INIT ──────────────────────────────────────────────────────────────────────
+document.getElementById('user-id-display').textContent = `User: ${userId.slice(0, 16)}`;
+document.getElementById('backend-url-display').textContent = BACKEND.replace('https://','');
+document.getElementById('swagger-link').href = `${BACKEND}/docs`;
+
+async function init() {
+  await checkHealth();
+  await loadSessions();
+  await loadDocs();
+  await loadStats();
+}
+
+async function checkHealth() {
+  try {
+    const r = await fetch(`${API}/health`);
+    const ok = r.ok;
+    document.getElementById('status-dot').className = 'status-dot' + (ok ? ' online' : '');
+    document.getElementById('status-text').textContent = ok ? 'online' : 'offline';
+  } catch {
+    document.getElementById('status-text').textContent = 'offline';
+  }
+}
+
+// ── PAGE NAVIGATION ───────────────────────────────────────────────────────────
+function showPage(name) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById(`page-${name}`).classList.add('active');
+  document.querySelectorAll('.nav-links span').forEach(s => s.classList.remove('active'));
+  event.target.classList.add('active');
+  if (name === 'logs') loadLogs();
+}
+
+// ── SESSIONS ──────────────────────────────────────────────────────────────────
+async function loadSessions() {
+  try {
+    const r = await fetch(`${API}/sessions/${userId}`);
+    const d = await r.json();
+    const sessions = d.sessions || [];
+    const el = document.getElementById('session-list');
+    if (!sessions.length) {
+      el.innerHTML = '<div style="font-size:.75rem;color:var(--muted);padding:8px">No sessions yet</div>';
+      return;
+    }
+    el.innerHTML = sessions.map(s =>
+      `<div class="session-item ${s.id===sessionId?'active':''}"
+        onclick="loadSession('${s.id}')">${s.title || 'Chat'}</div>`
+    ).join('');
+  } catch {}
+}
+
+async function loadSession(sid) {
+  sessionId = sid;
+  const r = await fetch(`${API}/history/${userId}?session_id=${sid}&limit=100`);
+  const d = await r.json();
+  messages = d.messages || [];
+  renderMessages();
+  loadSessions();
+}
+
+function newChat() {
+  sessionId = null;
+  messages = [];
+  renderMessages();
+  loadSessions();
+}
+
+// ── MESSAGES ──────────────────────────────────────────────────────────────────
+function renderMessages() {
+  const el = document.getElementById('chat-messages');
+  if (!messages.length) {
+    el.innerHTML = document.getElementById('welcome-msg')?.outerHTML ||
+      '<div class="welcome"><h2>Start a conversation</h2></div>';
+    return;
+  }
+  el.innerHTML = messages
+    .filter(m => m.role === 'user' || m.role === 'assistant')
+    .map((m, i) => renderMsg(m, i)).join('');
+  el.scrollTop = el.scrollHeight;
+}
+
+function renderMsg(m, i) {
+  if (m.role === 'user') {
+    return `<div class="msg user"><div class="bubble">${escHtml(m.content)}</div></div>`;
+  }
+  const toolHtml = m.tool_used
+    ? `<div class="tool-badge">${toolIcon(m.tool_used)} ${m.tool_used}</div>`
+    : '';
+  const srcHtml = (m.sources && m.sources.length)
+    ? `<button class="sources-btn" onclick="toggleSrc(${i})">📎 ${m.sources.length} source(s)</button>
+       <div class="sources-panel" id="src-${i}">
+         ${m.sources.map(s=>`<div style="margin-bottom:4px"><strong style="color:#5b8dd9">${s.source_label||s.file_name||'Source'}</strong><br>${escHtml((s.preview||'').slice(0,180))}</div>`).join('')}
+       </div>`
+    : '';
+  return `<div class="msg assistant">
+    ${toolHtml}
+    <div class="bubble">${escHtml(m.content)}</div>
+    ${srcHtml}
+  </div>`;
+}
+
+function toggleSrc(i) {
+  const el = document.getElementById(`src-${i}`);
+  if (el) el.classList.toggle('open');
+}
+
+function toolIcon(t) {
+  return {document_search:'📄',sql_query:'🗃️',calculator:'🧮',unit_converter:'📐'}[t]||'🔧';
+}
+
+function escHtml(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function addMessage(role, content, tool_used, sources) {
+  const m = {role, content, tool_used, sources: sources||[]};
+  messages.push(m);
+  const el = document.getElementById('chat-messages');
+  // remove welcome
+  const wm = el.querySelector('.welcome');
+  if (wm) wm.remove();
+  const div = document.createElement('div');
+  div.innerHTML = renderMsg(m, messages.length - 1);
+  el.appendChild(div.firstElementChild);
+  el.scrollTop = el.scrollHeight;
+}
+
+function addTyping() {
+  const el = document.getElementById('chat-messages');
+  const div = document.createElement('div');
+  div.id = 'typing-indicator';
+  div.className = 'msg assistant';
+  div.innerHTML = '<div class="bubble typing"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>';
+  el.appendChild(div);
+  el.scrollTop = el.scrollHeight;
+}
+
+function removeTyping() {
+  const el = document.getElementById('typing-indicator');
+  if (el) el.remove();
+}
+
+// ── SEND MESSAGE ──────────────────────────────────────────────────────────────
+async function sendMessage() {
+  const input = document.getElementById('chat-input');
+  const text = input.value.trim();
+  if (!text) return;
+
+  input.value = '';
+  autoResize(input);
+  document.getElementById('send-btn').disabled = true;
+
+  addMessage('user', text);
+
+  const streaming = document.getElementById('stream-toggle').checked;
+
+  if (streaming) {
+    await sendStreaming(text);
+  } else {
+    addTyping();
+    try {
+      const r = await fetch(`${API}/chat`, {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({user_id: userId, session_id: sessionId, message: text, stream: false})
+      });
+      const d = await r.json();
+      removeTyping();
+      sessionId = d.session_id || sessionId;
+      addMessage('assistant', d.response, d.tool_used, d.sources);
+      await loadSessions();
+      await loadStats();
+    } catch(e) {
+      removeTyping();
+      addMessage('assistant', `⚠️ Error: ${e.message}`);
+    }
+  }
+
+  document.getElementById('send-btn').disabled = false;
+}
+
+async function sendStreaming(text) {
+  // Show streaming bubble
+  const chatEl = document.getElementById('chat-messages');
+  const wm = chatEl.querySelector('.welcome');
+  if (wm) wm.remove();
+
+  const streamDiv = document.createElement('div');
+  streamDiv.className = 'msg assistant';
+  const bubble = document.createElement('div');
+  bubble.className = 'bubble';
+  bubble.textContent = '▌';
+  streamDiv.appendChild(bubble);
+  chatEl.appendChild(streamDiv);
+  chatEl.scrollTop = chatEl.scrollHeight;
+
+  let fullText = '';
+  let tool_used = null;
+  let sources = [];
+
+  try {
+    const resp = await fetch(`${API}/chat/stream`, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({user_id: userId, session_id: sessionId, message: text, stream: true})
+    });
+
+    const reader = resp.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    while (true) {
+      const {done, value} = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, {stream: true});
+      const lines = buffer.split('\n');
+      buffer = lines.pop();
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        try {
+          const data = JSON.parse(line.slice(6));
+          if (data.type === 'token') {
+            fullText += data.content;
+            bubble.textContent = fullText + '▌';
+            chatEl.scrollTop = chatEl.scrollHeight;
+          } else if (data.type === 'done') {
+            tool_used = data.tool_used;
+            sources = data.sources || [];
+            sessionId = data.session_id || sessionId;
+          }
+        } catch {}
+      }
+    }
+  } catch(e) {
+    fullText = `⚠️ Streaming error: ${e.message}`;
+  }
+
+  // Replace streaming div with proper message
+  streamDiv.remove();
+  addMessage('assistant', fullText, tool_used, sources);
+  await loadSessions();
+  await loadStats();
+}
+
+// ── UPLOAD ────────────────────────────────────────────────────────────────────
+async function uploadFile(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const statusEl = document.getElementById('upload-status');
+  statusEl.textContent = `Indexing ${file.name}…`;
+  statusEl.style.color = 'var(--amber)';
+  const fd = new FormData();
+  fd.append('file', file);
+  fd.append('user_id', userId);
+  try {
+    const r = await fetch(`${API}/upload`, {method:'POST', body: fd});
+    const d = await r.json();
+    if (r.ok) {
+      statusEl.textContent = `✓ ${d.chunk_count} chunks indexed`;
+      statusEl.style.color = 'var(--green)';
+      await loadDocs();
+      await loadStats();
+    } else {
+      statusEl.textContent = `✗ ${d.detail || 'Upload failed'}`;
+      statusEl.style.color = 'var(--red)';
+    }
+  } catch(e) {
+    statusEl.textContent = `✗ ${e.message}`;
+    statusEl.style.color = 'var(--red)';
+  }
+  input.value = '';
+}
+
+async function loadDocs() {
+  try {
+    const r = await fetch(`${API}/documents/${userId}`);
+    const d = await r.json();
+    const docs = d.documents || [];
+    const el = document.getElementById('doc-list');
+    el.innerHTML = docs.slice(0,6).map(doc =>
+      `<div class="doc-chip">📄 ${doc.file_name}<span>${doc.chunk_count} chunks</span></div>`
+    ).join('');
+  } catch {}
+}
+
+// ── STATS ─────────────────────────────────────────────────────────────────────
+async function loadStats() {
+  try {
+    const r = await fetch(`${API}/stats/${userId}`);
+    const d = await r.json();
+    document.getElementById('stat-sessions').textContent = d.sessions ?? '—';
+    document.getElementById('stat-msgs').textContent = d.messages ?? '—';
+    document.getElementById('stat-docs').textContent = d.documents ?? '—';
+  } catch {}
+}
+
+// ── DATABASE PAGE ─────────────────────────────────────────────────────────────
+function setQuery(q) {
+  document.getElementById('nl-query').value = q;
+  runNLQuery();
+}
+
+async function runNLQuery() {
+  const q = document.getElementById('nl-query').value.trim();
+  if (!q) return;
+  const resEl = document.getElementById('db-results');
+  const sqlEl = document.getElementById('sql-preview');
+  resEl.innerHTML = '<div style="color:var(--muted);font-size:.85rem">Running query…</div>';
+  sqlEl.style.display = 'none';
+
+  try {
+    const r = await fetch(`${API}/chat`, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({user_id: userId, message: q, stream: false})
+    });
+    const d = await r.json();
+
+    // Try to extract SQL if present
+    const sqlMatch = d.response.match(/SQL used: `([^`]+)`/);
+    if (sqlMatch) {
+      sqlEl.textContent = sqlMatch[1];
+      sqlEl.style.display = 'block';
+    }
+
+    // Parse rows from response text
+    const lines = d.response.split('\n').filter(l => /^\d+\./.test(l));
+    if (lines.length) {
+      const rows = lines.map(l => {
+        const parts = l.replace(/^\d+\.\s*/, '').split(' | ');
+        return Object.fromEntries(parts.map(p => {
+          const [k,...v] = p.split(': ');
+          return [k?.trim(), v.join(': ').trim()];
+        }));
+      });
+      const cols = [...new Set(rows.flatMap(r => Object.keys(r)))].filter(Boolean);
+      resEl.innerHTML = `
+        <p style="font-size:.8rem;color:var(--muted);margin-bottom:8px">${lines.length} result(s)</p>
+        <table class="results-table">
+          <thead><tr>${cols.map(c=>`<th>${c}</th>`).join('')}</tr></thead>
+          <tbody>${rows.map(r=>`<tr>${cols.map(c=>`<td>${r[c]||''}</td>`).join('')}</tr>`).join('')}</tbody>
+        </table>`;
+    } else {
+      resEl.innerHTML = `<div class="bubble" style="max-width:100%;background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:12px;font-size:.85rem">${escHtml(d.response)}</div>`;
+    }
+  } catch(e) {
+    resEl.innerHTML = `<div style="color:var(--red);font-size:.85rem">Error: ${e.message}</div>`;
+  }
+}
+
+// ── LOGS PAGE ─────────────────────────────────────────────────────────────────
+async function loadLogs() {
+  const filter = document.getElementById('log-filter')?.value || '';
+  const el = document.getElementById('logs-container');
+  el.innerHTML = '<div style="color:var(--muted);font-size:.85rem">Loading…</div>';
+
+  try {
+    const r = await fetch(`${API}/stats/${userId}`);
+    const stats = await r.json();
+    const tools = stats.tool_usage || {};
+
+    // Build a summary view since we may not have a direct logs endpoint
+    const toolRows = Object.entries(tools).map(([t, c]) =>
+      `<tr><td>${new Date().toISOString().slice(0,10)}</td>
+       <td><span class="badge tool_call">tool_call</span></td>
+       <td>${userId.slice(0,12)}</td><td>${t}</td><td>${c} calls</td></tr>`
+    ).join('');
+
+    const statsHtml = `
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;margin-bottom:16px">
+        <div class="stat-box"><div class="num">${stats.sessions||0}</div><div class="lbl">Sessions</div></div>
+        <div class="stat-box"><div class="num">${stats.messages||0}</div><div class="lbl">Messages</div></div>
+        <div class="stat-box"><div class="num">${stats.documents||0}</div><div class="lbl">Documents</div></div>
+        <div class="stat-box"><div class="num">${Object.values(tools).reduce((a,b)=>a+b,0)}</div><div class="lbl">Tool Calls</div></div>
+      </div>`;
+
+    const toolHtml = Object.keys(tools).length ? `
+      <h3 style="font-size:.9rem;font-weight:600;margin-bottom:8px">Tool Usage</h3>
+      <table class="log-table">
+        <thead><tr><th>Date</th><th>Event</th><th>User</th><th>Tool</th><th>Count</th></tr></thead>
+        <tbody>${toolRows}</tbody>
+      </table>` : '<div style="color:var(--muted);font-size:.85rem">No tool calls yet. Start chatting to see activity.</div>';
+
+    el.innerHTML = statsHtml + toolHtml;
+  } catch(e) {
+    el.innerHTML = `<div style="color:var(--red);font-size:.85rem">Could not load logs: ${e.message}</div>`;
+  }
+}
+
+// ── API TESTER ─────────────────────────────────────────────────────────────────
+async function tryApi(method, path, body) {
+  const resEl = document.getElementById('api-response');
+  const latEl = document.getElementById('api-latency');
+  resEl.style.display = 'block';
+  resEl.textContent = 'Loading…';
+  const t0 = Date.now();
+  try {
+    const opts = {method, headers:{'Content-Type':'application/json'}};
+    if (body) opts.body = JSON.stringify(body);
+    const r = await fetch(`${BACKEND}${path}`, opts);
+    const d = await r.json();
+    resEl.textContent = JSON.stringify(d, null, 2);
+    latEl.textContent = `⏱ ${Date.now()-t0}ms · ${r.status} ${r.statusText}`;
+  } catch(e) {
+    resEl.textContent = `Error: ${e.message}`;
+    resEl.style.color = 'var(--red)';
+  }
+}
+
+// ── UTILS ─────────────────────────────────────────────────────────────────────
+function fillInput(text) {
+  const el = document.getElementById('chat-input');
+  el.value = text;
+  autoResize(el);
+  el.focus();
+}
+
+function handleKey(e) {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    sendMessage();
+  }
+}
+
+function autoResize(el) {
+  el.style.height = 'auto';
+  el.style.height = Math.min(el.scrollHeight, 160) + 'px';
+}
+
+// Start
+init();
+</script>
+</body>
+</html>
