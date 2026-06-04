@@ -132,69 +132,26 @@ async def memory_retrieval_node(state: AgentState) -> dict:
         "iteration": 0,
     }
 async def tool_selection_node(state: AgentState) -> dict:
-    logger.info("[Node] tool_selection | user='%s'", state["user_input"][:60])
+    llm_with_tools = _get_llm(with_tools=True)
+    response = await llm_with_tools.ainvoke(state["messages"])
+    
+    # Fix: detect raw python_tag output from Groq and clean it
+    content = response.content or ""
+    if "<|python_tag|>" in content:
+        # Groq returned raw tool syntax — fall back to plain LLM
+        logger.warning("[Node] tool_selection | Groq tool call failed, using plain LLM")
+        llm_plain = _get_llm(with_tools=False)
+        response = await llm_plain.ainvoke(state["messages"])
+        return {
+            "messages": [response],
+            "requires_tool": False,
+            "iteration": state.get("iteration", 0) + 1,
+        }
 
-    elapsed_ms = 0.0
-    has_tool_calls = False
-    response = None
-
-    try:
-        with Timer() as t:
-            llm_with_tools = _get_llm(with_tools=True)
-            response: AIMessage = await llm_with_tools.ainvoke(state["messages"])
-        elapsed_ms = t.ms
-        has_tool_calls = bool(getattr(response, "tool_calls", None))
-        if response.tool_calls:
-            has_tool_calls = True
-
-    except Exception as exc:
-        exc_str = str(exc)
-        logger.warning("[Node] tool_selection | Groq tool call failed: %s", exc_str)
-
-        # Try to salvage the malformed tool call before falling back
-        recovered = _parse_malformed_tool_call(exc_str)
-        if recovered and recovered.tool_calls:
-            logger.info("[Node] tool_selection | Recovered malformed tool call: %s",
-                        recovered.tool_calls[0]["name"])
-            return {
-                "messages": [recovered],
-                "requires_tool": True,
-                "response": "",
-                "iteration": state.get("iteration", 0) + 1,
-            }
-
-        # True fallback — plain LLM
-        try:
-            with Timer() as t2:
-                llm_plain = _get_llm(with_tools=False)
-                response = await llm_plain.ainvoke(state["messages"])
-            elapsed_ms = t2.ms
-            logger.info("[Node] tool_selection | fallback plain LLM succeeded latency=%.0fms", elapsed_ms)
-        except Exception as exc2:
-            logger.error("[Node] tool_selection | fallback also failed: %s", exc2)
-            response = AIMessage(content="I encountered an error. Please try again.")
-        has_tool_calls = False
-        
-    if response is None:
-        response = AIMessage(content="")
-
-    pre_filled_response = ""
-    if not has_tool_calls and response.content.strip():
-        pre_filled_response = response.content
-
-    logger.info("[Node] tool_selection | tool_calls=%s latency=%.0fms", has_tool_calls, elapsed_ms)
-    log_event(
-        "tool_selection",
-        user_id=state["user_id"],
-        session_id=state["session_id"],
-        latency_ms=elapsed_ms,
-        detail=f"tool_calls={has_tool_calls}",
-    )
-
+    has_tool_calls = bool(getattr(response, "tool_calls", None))
     return {
         "messages": [response],
         "requires_tool": has_tool_calls,
-        "response": pre_filled_response,
         "iteration": state.get("iteration", 0) + 1,
     }
 
