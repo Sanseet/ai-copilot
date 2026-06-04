@@ -12,7 +12,8 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 from backend.config import settings
 from backend.logger import Timer, log_event, logger
-from sentence_transformers import SentenceTransformer
+# from sentence_transformers import SentenceTransformer
+from chromadb.utils.embedding_functions import ONNXMiniLM_L6_V2
 
 # _embedder: SentenceTransformer | None = None
 # # _chroma_client: chromadb.PersistentClient | None = None
