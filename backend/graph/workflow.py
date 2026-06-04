@@ -132,23 +132,41 @@ async def memory_retrieval_node(state: AgentState) -> dict:
         "iteration": 0,
     }
 async def tool_selection_node(state: AgentState) -> dict:
-    llm_with_tools = _get_llm(with_tools=True)
-    response = await llm_with_tools.ainvoke(state["messages"])
-    
-    # Fix: detect raw python_tag output from Groq and clean it
-    content = response.content or ""
-    if "<|python_tag|>" in content:
-        # Groq returned raw tool syntax — fall back to plain LLM
-        logger.warning("[Node] tool_selection | Groq tool call failed, using plain LLM")
-        llm_plain = _get_llm(with_tools=False)
-        response = await llm_plain.ainvoke(state["messages"])
-        return {
-            "messages": [response],
-            "requires_tool": False,
-            "iteration": state.get("iteration", 0) + 1,
-        }
+    logger.info("[Node] tool_selection | user='%s'", state["user_input"][:60])
 
-    has_tool_calls = bool(getattr(response, "tool_calls", None))
+    with Timer() as t:
+        try:
+            llm_with_tools = _get_llm(with_tools=True)
+            response: AIMessage = await llm_with_tools.ainvoke(state["messages"])
+
+            # Fix: detect raw python_tag output from Groq
+            content = response.content or ""
+            if "<|python_tag|>" in content:
+                raise ValueError("Groq returned raw tool syntax")
+
+            has_tool_calls = bool(getattr(response, "tool_calls", None))
+
+        except Exception as e:
+            logger.warning("[Node] tool_selection | LLM call failed: %s", e)
+
+            # Handle rate limit gracefully — don't crash
+            if "429" in str(e) or "rate_limit" in str(e).lower():
+                response = AIMessage(
+                    content="⚠️ Groq API rate limit reached. You have used your daily free quota (100k tokens). "
+                            "Please wait ~1 hour and try again, or upgrade at console.groq.com/settings/billing"
+                )
+            else:
+                # Other errors — fallback to plain LLM without tools
+                try:
+                    llm_plain = _get_llm(with_tools=False)
+                    response = await llm_plain.ainvoke(state["messages"])
+                except Exception as e2:
+                    response = AIMessage(content=f"⚠️ LLM error: {e2}")
+
+            has_tool_calls = False
+
+    logger.info("[Node] tool_selection | tool_calls=%s latency=%.0fms", has_tool_calls, t.ms)
+
     return {
         "messages": [response],
         "requires_tool": has_tool_calls,
